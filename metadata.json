@@ -1,0 +1,5 @@
+{
+  "name": "FactoryFlow AI",
+  "description": "Precision. Automation. Intelligence. A comprehensive industrial platform combining CRM, Manufacturing Execution System (MES), hardware integration, and automated testing.",
+  "requestFramePermissions": ["camera"]
+}
