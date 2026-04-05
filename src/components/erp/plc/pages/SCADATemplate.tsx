@@ -11,11 +11,18 @@ import {
   Clock,
   Activity,
   Tag,
-  Cpu
+  Cpu,
+  QrCode,
+  Scan,
+  X,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
 import { toast } from 'sonner';
+import { QRCodeSVG } from 'qrcode.react';
+import { Html5QrcodeScanner } from 'html5-qrcode';
+import { useEffect, useRef } from 'react';
 
 interface SCADATag {
   id: string;
@@ -26,6 +33,7 @@ interface SCADATag {
   unit: string;
   samplingRate: number; // in ms
   description: string;
+  variableType: 'Speed' | 'Current' | 'Status' | 'Temperature' | 'Other';
 }
 
 interface SCADATemplate {
@@ -37,11 +45,11 @@ interface SCADATemplate {
 }
 
 const INITIAL_TAGS: SCADATag[] = [
-  { id: '1', name: 'Motor_Temp', address: 'ns=2;s=Motor1.Temperature', dataType: 'Float', defaultValue: '25.0', unit: '°C', samplingRate: 1000, description: 'Main motor winding temperature' },
-  { id: '2', name: 'Motor_RPM', address: 'ns=2;s=Motor1.Speed', dataType: 'Float', defaultValue: '0', unit: 'RPM', samplingRate: 500, description: 'Rotational speed of the motor' },
-  { id: '3', name: 'Motor_Current', address: 'ns=2;s=Motor1.Current', dataType: 'Float', defaultValue: '0', unit: 'A', samplingRate: 500, description: 'Phase current consumption' },
-  { id: '4', name: 'Emergency_Stop', address: 'ns=2;s=Motor1.EStop', dataType: 'Boolean', defaultValue: 'false', unit: '', samplingRate: 100, description: 'E-Stop status bit' },
-  { id: '5', name: 'Motor_Bearing_Temp', address: 'ns=2;s=Motor1.BearingTemp', dataType: 'Float', defaultValue: '25.0', unit: '°C', samplingRate: 1000, description: 'Motor bearing temperature sensor' },
+  { id: '1', name: 'Motor_Temp', address: 'ns=2;s=Motor1.Temperature', dataType: 'Float', defaultValue: '25.0', unit: '°C', samplingRate: 1000, description: 'Main motor winding temperature', variableType: 'Temperature' },
+  { id: '2', name: 'Motor_RPM', address: 'ns=2;s=Motor1.Speed', dataType: 'Float', defaultValue: '0', unit: 'RPM', samplingRate: 500, description: 'Rotational speed of the motor', variableType: 'Speed' },
+  { id: '3', name: 'Motor_Current', address: 'ns=2;s=Motor1.Current', dataType: 'Float', defaultValue: '0', unit: 'A', samplingRate: 500, description: 'Phase current consumption', variableType: 'Current' },
+  { id: '4', name: 'Emergency_Stop', address: 'ns=2;s=Motor1.EStop', dataType: 'Boolean', defaultValue: 'false', unit: '', samplingRate: 100, description: 'E-Stop status bit', variableType: 'Status' },
+  { id: '5', name: 'Motor_Bearing_Temp', address: 'ns=2;s=Motor1.BearingTemp', dataType: 'Float', defaultValue: '25.0', unit: '°C', samplingRate: 1000, description: 'Motor bearing temperature sensor', variableType: 'Temperature' },
 ];
 
 export default function SCADATemplate() {
@@ -49,6 +57,9 @@ export default function SCADATemplate() {
   const [protocol, setProtocol] = useState<'OPC-UA' | 'MQTT' | 'Modbus' | 'EtherNet/IP'>('OPC-UA');
   const [tags, setTags] = useState<SCADATag[]>(INITIAL_TAGS);
   const [isSaving, setIsSaving] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
   const addTag = () => {
     const newTag: SCADATag = {
@@ -59,7 +70,8 @@ export default function SCADATemplate() {
       defaultValue: '0',
       unit: '',
       samplingRate: 1000,
-      description: ''
+      description: '',
+      variableType: 'Other'
     };
     setTags([...tags, newTag]);
     toast.success('New tag added to template');
@@ -82,6 +94,47 @@ export default function SCADATemplate() {
     }, 1000);
   };
 
+  const getTemplateJSON = () => {
+    return JSON.stringify({
+      name: templateName,
+      protocol,
+      tags
+    });
+  };
+
+  const handleScanSuccess = (decodedText: string) => {
+    try {
+      const data = JSON.parse(decodedText);
+      if (data.name && data.tags) {
+        setTemplateName(data.name);
+        setProtocol(data.protocol || 'OPC-UA');
+        setTags(data.tags);
+        toast.success('Template imported successfully via QR');
+        setShowScanner(false);
+        if (scannerRef.current) {
+          scannerRef.current.clear();
+        }
+      }
+    } catch (err) {
+      toast.error('Invalid QR code format for SCADA template');
+    }
+  };
+
+  useEffect(() => {
+    if (showScanner) {
+      const scanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 250 }, false);
+      scanner.render(handleScanSuccess, (err) => {
+        // Silent error for scanning
+      });
+      scannerRef.current = scanner;
+      return () => {
+        if (scannerRef.current) {
+          scannerRef.current.clear();
+        }
+      };
+    }
+  }, [showScanner]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -93,6 +146,20 @@ export default function SCADATemplate() {
         </div>
         <div className="flex items-center gap-3">
           <button 
+            onClick={() => setShowScanner(true)}
+            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all"
+          >
+            <Scan size={18} />
+            Scan QR
+          </button>
+          <button 
+            onClick={() => setShowQRModal(true)}
+            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all"
+          >
+            <QrCode size={18} />
+            Share QR
+          </button>
+          <button 
             onClick={handleSave}
             disabled={isSaving}
             className="bg-orange-500 hover:bg-orange-600 text-zinc-950 font-bold px-6 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-orange-500/20 active:scale-95 transition-all disabled:opacity-50"
@@ -102,6 +169,69 @@ export default function SCADATemplate() {
           </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showQRModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-zinc-900 border border-zinc-800 p-8 rounded-3xl shadow-2xl max-w-sm w-full relative"
+            >
+              <button 
+                onClick={() => setShowQRModal(false)}
+                className="absolute top-4 right-4 p-2 text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                <X size={20} />
+              </button>
+              <div className="flex flex-col items-center text-center space-y-6">
+                <div className="w-16 h-16 bg-orange-500/10 rounded-2xl flex items-center justify-center">
+                  <QrCode className="text-orange-500" size={32} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-zinc-100">Template QR Code</h3>
+                  <p className="text-sm text-zinc-500 mt-2">Scan this code to import the current SCADA template configuration on another device.</p>
+                </div>
+                <div className="p-4 bg-white rounded-2xl shadow-inner">
+                  <QRCodeSVG value={getTemplateJSON()} size={200} />
+                </div>
+                <p className="text-[10px] font-mono text-zinc-600 break-all bg-zinc-950 p-2 rounded-lg border border-zinc-800 w-full">
+                  {templateName} // {tags.length} tags
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {showScanner && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-zinc-900 border border-zinc-800 p-8 rounded-3xl shadow-2xl max-w-lg w-full relative"
+            >
+              <button 
+                onClick={() => setShowScanner(false)}
+                className="absolute top-4 right-4 p-2 text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                <X size={20} />
+              </button>
+              <div className="flex flex-col items-center text-center space-y-6">
+                <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center">
+                  <Scan className="text-emerald-500" size={32} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-zinc-100">Scan Template QR</h3>
+                  <p className="text-sm text-zinc-500 mt-2">Point your camera at a SCADA template QR code to import its configuration.</p>
+                </div>
+                <div id="qr-reader" className="w-full rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950"></div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Template Configuration */}
@@ -188,6 +318,7 @@ export default function SCADATemplate() {
                 <thead>
                   <tr className="bg-zinc-900/50 border-b border-zinc-800">
                     <th className="p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tag Name</th>
+                    <th className="p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Variable Type</th>
                     <th className="p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Address / Path</th>
                     <th className="p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest w-24">Type</th>
                     <th className="p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest w-24">Default</th>
@@ -213,6 +344,19 @@ export default function SCADATemplate() {
                             onChange={(e) => updateTag(tag.id, 'name', e.target.value)}
                             className="w-full bg-transparent border-none focus:ring-0 text-zinc-200 font-mono text-xs"
                           />
+                        </td>
+                        <td className="p-3">
+                          <select 
+                            value={tag.variableType}
+                            onChange={(e) => updateTag(tag.id, 'variableType', e.target.value)}
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-1 px-2 text-[10px] focus:outline-none"
+                          >
+                            <option value="Speed">Speed</option>
+                            <option value="Current">Current</option>
+                            <option value="Status">Status</option>
+                            <option value="Temperature">Temperature</option>
+                            <option value="Other">Other</option>
+                          </select>
                         </td>
                         <td className="p-3">
                           <input 
