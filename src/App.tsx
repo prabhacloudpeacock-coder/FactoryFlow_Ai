@@ -10,13 +10,16 @@ import { hasPermission } from './lib/permissions';
 import { sync } from './lib/sync';
 
 // Components
-import Dashboard from './components/erp/dashboard';
+import Dashboard from './pages/dashboard/Dashboard';
+import ProductManagement from './pages/product/ProductManagement';
+import WorkflowEditor from './pages/workflow/WorkflowEditor';
+import ProductionTracking from './pages/production/ProductionTracking';
+import InventoryManagement from './pages/inventory/InventoryManagement';
+import QualityControl from './pages/qc/QualityControl';
+
 import MES from './components/erp/mes';
 import ShopFloor from './components/erp/shopfloor';
 import PLC from './components/erp/plc';
-import Quality from './components/erp/quality';
-import BOM from './components/erp/bom';
-import Inventory from './components/erp/inventory';
 import Maintenance from './components/erp/maintenance';
 import OEE from './components/erp/oee';
 import Workforce from './components/erp/workforce';
@@ -25,7 +28,6 @@ import Reports from './components/erp/reports';
 import Integration from './components/erp/integration';
 import SettingsPage from './components/erp/settings';
 import MasterData from './components/erp/master';
-import MasterProduct from './components/erp/master_product';
 import WorkInstructions from './components/erp/work-instructions';
 import AI from './components/erp/ai';
 import Documentation from './components/erp/docs';
@@ -121,12 +123,15 @@ function AnimatedRoutes({ profile }: { profile: UserProfile | null }) {
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<RouteWrapper profile={profile} element={<Dashboard />} />} />
+        <Route path="/product" element={<RouteWrapper profile={profile} permissionId="master" element={<ProductManagement />} />} />
+        <Route path="/workflow" element={<RouteWrapper profile={profile} permissionId="engineering" element={<WorkflowEditor />} />} />
+        <Route path="/production" element={<RouteWrapper profile={profile} permissionId="mes" element={<ProductionTracking />} />} />
+        <Route path="/inventory" element={<RouteWrapper profile={profile} permissionId="inventory" element={<InventoryManagement />} />} />
+        <Route path="/quality" element={<RouteWrapper profile={profile} permissionId="quality" element={<QualityControl />} />} />
+        
         <Route path="/mes" element={<RouteWrapper profile={profile} permissionId="mes" element={<MES />} />} />
         <Route path="/shopfloor" element={<RouteWrapper profile={profile} permissionId="shopfloor" element={<ShopFloor />} />} />
         <Route path="/plc" element={<RouteWrapper profile={profile} permissionId="plc" element={<PLC />} />} />
-        <Route path="/quality" element={<RouteWrapper profile={profile} permissionId="quality" element={<Quality />} />} />
-        <Route path="/bom" element={<RouteWrapper profile={profile} permissionId="bom" element={<BOM />} />} />
-        <Route path="/inventory" element={<RouteWrapper profile={profile} permissionId="inventory" element={<Inventory />} />} />
         <Route path="/purchasing" element={<RouteWrapper profile={profile} permissionId="inventory" element={<Purchasing />} />} />
         <Route path="/maintenance" element={<RouteWrapper profile={profile} permissionId="maintenance" element={<Maintenance />} />} />
         <Route path="/oee" element={<RouteWrapper profile={profile} permissionId="oee" element={<OEE />} />} />
@@ -137,7 +142,6 @@ function AnimatedRoutes({ profile }: { profile: UserProfile | null }) {
         
         {/* Restricted Routes */}
         <Route path="/master" element={<RouteWrapper profile={profile} permissionId="master" element={<MasterData />} />} />
-        <Route path="/master-product" element={<RouteWrapper profile={profile} permissionId="master" element={<MasterProduct />} />} />
         <Route path="/work-instructions" element={<RouteWrapper profile={profile} permissionId="shopfloor" element={<WorkInstructions />} />} />
         <Route path="/settings" element={<RouteWrapper profile={profile} permissionId="settings" element={<SettingsPage profile={profile} />} />} />
         
@@ -159,44 +163,19 @@ function AnimatedRoutes({ profile }: { profile: UserProfile | null }) {
 const getMenuItems = (role: UserRole = 'operator') => [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard', id: 'dashboard' },
   
-  // Engineering & Design
-  { path: '/engineering', icon: Settings, label: 'Engineering', id: 'engineering' },
-  { path: '/bom', icon: Package, label: 'BOM & Routing', id: 'bom' },
-  { path: '/master-product', icon: Grid, label: 'Master Product', id: 'master' },
-  
-  // Sales & Procurement
-  { path: '/crm', icon: Briefcase, label: 'Sales & CRM', id: 'crm' },
-  { path: '/ecommerce', icon: ShoppingCart, label: 'B2B E-Commerce', id: 'crm' },
-  { path: '/purchasing', icon: ClipboardList, label: 'Purchasing', id: 'inventory' },
-  
-  // Inventory & Logistics
+  // Core ERP Modules
+  { path: '/product', icon: Package, label: 'Products & BOM', id: 'master' },
+  { path: '/workflow', icon: Settings, label: 'Workflow Engine', id: 'engineering' },
+  { path: '/production', icon: Factory, label: 'Production Tracking', id: 'mes' },
   { path: '/inventory', icon: Package, label: 'Inventory', id: 'inventory' },
-  { path: '/barcode', icon: BarcodeIcon, label: 'Barcode', id: 'barcode' },
-  
-  // Production Execution
-  { path: '/mes', icon: Factory, label: 'MES Core', id: 'mes' },
-  { path: '/shopfloor', icon: Activity, label: 'Shop Floor', id: 'shopfloor' },
-  { path: '/work-instructions', icon: BookOpen, label: 'Work Instructions', id: 'shopfloor' },
-  { path: '/plc', icon: Activity, label: 'PLC Integration', id: 'plc' },
-  
-  // Quality & Maintenance
   { path: '/quality', icon: Beaker, label: 'Quality Control', id: 'quality' },
-  { path: '/maintenance', icon: Settings, label: 'Maintenance', id: 'maintenance' },
   
-  // Performance & Intelligence
-  { path: '/oee', icon: Activity, label: 'OEE Management', id: 'oee' },
-  { path: '/bi', icon: Activity, label: 'Business Intelligence', id: 'bi' },
-  { path: '/ai', icon: Activity, label: 'AI Features', id: 'ai' },
-  { path: '/reports', icon: Activity, label: 'Reports', id: 'reports' },
+  // Advanced Features
+  { path: '/plc', icon: Activity, label: 'PLC Integration', id: 'plc' },
+  { path: '/shopfloor', icon: Activity, label: 'Shop Floor', id: 'shopfloor' },
+  { path: '/ai', icon: Activity, label: 'AI Insights', id: 'ai' },
   
-  // Organization & Admin
-  { path: '/finance', icon: Package, label: 'Finance', id: 'finance' },
-  { path: '/hr', icon: Users, label: 'HR Management', id: 'hr' },
-  { path: '/workforce', icon: Users, label: 'Workforce', id: 'workforce' },
-  { path: '/alerts', icon: Activity, label: 'Alerts', id: 'alerts' },
-  { path: '/integration', icon: Activity, label: 'Integration', id: 'integration' },
-  { path: '/master', icon: Settings, label: 'Master Data', id: 'master' },
-  { path: '/docs', icon: BookOpen, label: 'Documentation', id: 'docs' },
+  // Admin & Settings
   { path: '/settings', icon: Settings, label: 'Settings', id: 'settings' },
 ].filter(item => hasPermission(role, item.id));
 
